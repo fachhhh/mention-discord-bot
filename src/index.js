@@ -1,47 +1,39 @@
-require('dotenv').config({ quiet: true });
-const { Client, GatewayIntentBits } = require('discord.js');
+import 'dotenv/config';
+import express from 'express';
+import { Client, GatewayIntentBits } from 'discord.js';
 
-const LINK_REPLY = 'https://ristek.link/ArsipVille';
+const app = express();
 
-// cooldown dalam ms (misal 10 detik)
-const COOLDOWN_MS = 10_000;
+// ===== HTTP SERVER (BIAR WEB SERVICE HIDUP) =====
+const PORT = process.env.PORT || 3000;
 
-// simpan waktu terakhir user mention bot
-const cooldownMap = new Map();
+app.get('/', (req, res) => {
+  res.send('Bot is running');
+});
 
+app.listen(PORT, () => {
+  console.log(`🌐 Web server running on port ${PORT}`);
+});
+
+// ===== DISCORD BOT =====
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+    GatewayIntentBits.MessageContent,
+  ],
 });
 
 client.once('clientReady', () => {
   console.log(`✅ Connected as ${client.user.tag}`);
 });
 
-client.on('messageCreate', (message) => {
-  // 1. Abaikan bot
+client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  // 2. Cek apakah bot di-mention (berapa kali pun tetap true)
-  if (!message.mentions.has(client.user)) return;
-
-  const userId = message.author.id;
-  const now = Date.now();
-
-  // 3. Cooldown check
-  const lastUsed = cooldownMap.get(userId) || 0;
-  if (now - lastUsed < COOLDOWN_MS) {
-    return; // diem, tidak reply
+  if (message.mentions.has(client.user)) {
+    await message.reply('https://ristek.link/ArsipVille');
   }
-
-  // 4. Update cooldown
-  cooldownMap.set(userId, now);
-
-  // 5. Reply 1 link saja
-  message.reply(LINK_REPLY);
 });
 
 client.login(process.env.TOKEN);

@@ -8,10 +8,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('Bot is running');
+  res.status(200).send('Bot is running');
 });
 
-app.listen(PORT, () => {
+app.listen(process.env.PORT, () => {
   console.log(`🌐 Web server running on port ${PORT}`);
 });
 

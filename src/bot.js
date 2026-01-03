@@ -16,6 +16,5 @@ export function startBot() {
   });
 
   client.on("messageCreate", (msg) => messageCreate(msg, client));
-
   client.login(ENV.TOKEN);
 }

@@ -1,5 +1,5 @@
 /**
- * New Assignment Parser
+ * New Assignment Parser with Fuzzy Matching
  * 
  * Format 1 (Individual):
  * @user1, menu1 qty, menu2 qty
@@ -9,6 +9,8 @@
  * Format 2 (Split equally):
  * bagi rata bayar ke @payer
  */
+
+import { matchItem } from './similarity.js';
 
 /**
  * Parse the new format assignment
@@ -140,6 +142,7 @@ export function parseNewFormat(text, items, message) {
 
 /**
  * Parse menu items from string like "Chicken Ramen 1, Ocha 2"
+ * Now with fuzzy matching using cosine similarity
  */
 function parseMenuItems(menuString, ocrItems) {
   const parts = menuString.split(',').map(p => p.trim()).filter(p => p);
@@ -158,14 +161,14 @@ function parseMenuItems(menuString, ocrItems) {
       qty = 1;
     }
 
-    // Find matching item from OCR
-    const matched = findBestItemMatch(itemName, ocrItems);
+    // Use similarity matching from utility
+    const matched = matchItem(itemName, ocrItems);
     if (matched) {
       result.push({
-        name: matched.item.item,
-        price: matched.item.price,
+        name: matched.item,
+        price: matched.price,
         qty,
-        matchedIndex: matched.index
+        originalInput: itemName // Keep original for reference
       });
     } else {
       console.warn(`⚠️ Item not found: "${itemName}"`);
@@ -173,53 +176,6 @@ function parseMenuItems(menuString, ocrItems) {
   }
 
   return result;
-}
-
-/**
- * Fuzzy match item name
- */
-function findBestItemMatch(query, items) {
-  const q = query.toLowerCase().replace(/[^a-z0-9\s]/g, '');
-  
-  let bestMatch = null;
-  let bestScore = 0;
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const itemName = item.item.toLowerCase().replace(/[^a-z0-9\s]/g, '');
-    
-    // Calculate similarity score
-    let score = 0;
-    
-    // Exact match
-    if (itemName === q) {
-      score = 100;
-    }
-    // Contains query
-    else if (itemName.includes(q)) {
-      score = 70 + (q.length / itemName.length) * 20;
-    }
-    // Query contains item name
-    else if (q.includes(itemName)) {
-      score = 60 + (itemName.length / q.length) * 20;
-    }
-    // Word match
-    else {
-      const queryWords = q.split(/\s+/);
-      const itemWords = itemName.split(/\s+/);
-      const matchedWords = queryWords.filter(w => 
-        itemWords.some(iw => iw.includes(w) || w.includes(iw))
-      );
-      score = (matchedWords.length / Math.max(queryWords.length, itemWords.length)) * 50;
-    }
-
-    if (score > bestScore && score >= 30) {
-      bestScore = score;
-      bestMatch = { item, index: i, score };
-    }
-  }
-
-  return bestMatch;
 }
 
 /**

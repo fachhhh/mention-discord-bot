@@ -1,14 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
 import { Client, GatewayIntentBits } from 'discord.js';
-import { 
-  handleSplitBillStart, 
-  handleDescription, 
-  handleConfirmation,
-  handleUtangCommand,
-  handleBayarCommand,
-  handleRiwayatCommand
-} from './handlers/splitBillHandler.js';
+import { handleConfirmation } from './handlers/splitBillHandler.js';
+import { routeCommand } from './handlers/commandRouter.js';
+import { handleBotMention } from './handlers/mentionHandler.js';
+import { handleInteraction } from './events/interactionCreate.js';
 import sessionManager from './utils/sessionManager.js';
 import visionService from './services/visionService.js';
 import { closePool } from './config/database.js';
@@ -38,7 +34,7 @@ const client = new Client({
 
 client.once('clientReady', () => {
   console.log(`✅ Connected as ${client.user.tag}`);
-  console.log(`📊 Split Bill Bot ready!`);
+  console.log(`📊 SuperApp Bot ready! (Split Bill + Quotes)`);
   
   // Cleanup expired sessions every 5 minutes
   setInterval(() => {
@@ -54,57 +50,19 @@ client.on('messageCreate', async (message) => {
   try {
     const content = message.content.trim().toLowerCase();
 
-    // Handle commands
-    if (content === '!utang') {
-      await handleUtangCommand(message);
-      return;
-    }
-
-    if (content.startsWith('!bayar')) {
-      await handleBayarCommand(message);
-      return;
-    }
-
-    if (content === '!riwayat') {
-      await handleRiwayatCommand(message);
-      return;
-    }
-
-    // Check if user is in a session (waiting for description)
-    const session = sessionManager.getSession(message.author.id);
-    
-    if (session && session.state === 'WAITING_DESCRIPTION') {
-      // Handle description input
-      await handleDescription(message);
-      return;
-    }
-
-    // Check if bot is mentioned
-    if (message.mentions.has(client.user)) {
-      // Check if message has image attachment
-      const hasImage = message.attachments.some(att => att.contentType?.startsWith('image/'));
+    // ===== COMMAND ROUTING =====
+    if (content.startsWith('!')) {
+      const args = content.slice(1).trim().split(/\s+/);
+      const command = args[0].toLowerCase();
       
-      if (hasImage) {
-        // Start split bill flow
-        await handleSplitBillStart(message);
-      } else {
-        // Just a mention without image - show help
-        await message.reply(
-          '👋 **Split Bill Bot**\n\n' +
-          '**Cara pakai:**\n' +
-          '1. Mention bot + upload foto struk\n' +
-          '2. Bot akan baca item dari struk\n' +
-          '3. Assign siapa pesan apa:\n\n' +
-          '```\n@user1, Chicken Ramen 1, Ocha 2\n@user2, Beef Curry 1\nbayar ke @yang_bayar\n```\n\n' +
-          '**Bagi rata:**\n```\n@user1 @user2 @user3 bagi rata bayar ke @yang_bayar\n```\n\n' +
-          '4. React ✅ untuk konfirmasi\n\n' +
-          '**Commands:**\n' +
-          '• `!utang` - Cek hutang kamu\n' +
-          '• `!bayar @user` - Tandai lunas\n' +
-          '• `!riwayat` - Lihat history\n' +
-          '• `cancel` - Batalkan sesi'
-        );
-      }
+      const handled = await routeCommand(message, command, content);
+      if (handled) return;
+    }
+
+    // ===== BOT MENTION =====
+    if (message.mentions.has(client.user)) {
+      await handleBotMention(message);
+      return;
     }
   } catch (error) {
     console.error('❌ Message handler error:', error);
@@ -127,6 +85,15 @@ client.on('messageReactionAdd', async (reaction, user) => {
     await handleConfirmation(reaction, user);
   } catch (error) {
     console.error('❌ Reaction handler error:', error);
+  }
+});
+
+// ===== INTERACTION HANDLER (BUTTONS) =====
+client.on('interactionCreate', async (interaction) => {
+  try {
+    await handleInteraction(interaction);
+  } catch (error) {
+    console.error('❌ Interaction handler error:', error);
   }
 });
 

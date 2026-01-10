@@ -13,24 +13,29 @@ class SessionManager {
   /**
    * Create a new session for a user
    */
-  createSession(userId, guildId, channelId, initialData = {}) {
+  createSession(userId, initialData = {}) {
     const session = {
       userId,
-      guildId,
-      channelId,
-      state: 'WAITING_DESCRIPTION', // States: WAITING_DESCRIPTION, WAITING_CONFIRMATION
+      state: initialData.state || 'WAITING_DESCRIPTION',
       createdAt: Date.now(),
       expiresAt: Date.now() + this.sessionTimeout,
       ...initialData
     };
 
     this.sessions.set(userId, session);
-    console.log(`📝 Session created for user ${userId}`);
+    console.log(`📝 Session created for user ${userId} (state: ${session.state})`);
 
     // Auto-cleanup after timeout
     setTimeout(() => {
       if (this.sessions.has(userId)) {
         console.log(`⏰ Session timeout for user ${userId}`);
+        
+        // Clear grace timer if exists
+        const session = this.sessions.get(userId);
+        if (session?.graceTimerId) {
+          clearTimeout(session.graceTimerId);
+        }
+        
         this.sessions.delete(userId);
       }
     }, this.sessionTimeout);
@@ -89,6 +94,13 @@ class SessionManager {
    * Delete session (on completion or cancel)
    */
   deleteSession(userId) {
+    const session = this.sessions.get(userId);
+    
+    // Clear any timers before deleting
+    if (session?.graceTimerId) {
+      clearTimeout(session.graceTimerId);
+    }
+    
     const deleted = this.sessions.delete(userId);
     if (deleted) {
       console.log(`🗑️  Session deleted for user ${userId}`);
@@ -97,11 +109,11 @@ class SessionManager {
   }
 
   /**
-   * Get session by message ID (for reaction handling)
+   * Get session by message ID (for reaction/button handling)
    */
   getSessionByMessageId(messageId) {
     for (const [userId, session] of this.sessions.entries()) {
-      if (session.confirmationMessageId === messageId) {
+      if (session.confirmationMessageId === messageId || session.pollMessageId === messageId) {
         return { userId, session };
       }
     }

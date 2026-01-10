@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS bills (
     creator_id VARCHAR(20) NOT NULL,
     creator_username VARCHAR(100) NOT NULL,
     title VARCHAR(255),
+    description TEXT, -- User-friendly description: "karaoke healing after UAS", "makan siang bareng", etc.
     image_url TEXT,
     ocr_result TEXT,
     total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
